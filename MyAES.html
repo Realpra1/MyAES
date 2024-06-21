@@ -17,8 +17,11 @@
         .container {
             max-width: 800px;
         }
-        .result {
+        .red-text {
             color: red;
+        }
+        .green-text {
+            color: green;
         }
         .faq {
             margin-top: 20px;
@@ -34,6 +37,10 @@
         <a href="https://code.google.com/p/crypto-js/#AES" class="list-group-item list-group-item-action">Google documentation of this AES code.</a>
     </div>
     <br/>
+    <div class="form-check">
+        <input type="checkbox" class="form-check-input" id="utf8InputCheckbox" name="utf8InputCheckbox" onclick="checkBoxUpdate()" checked>
+        <label class="form-check-label" for="utf8InputCheckbox">Hex input (otherwise text parsed as UTF8)</label>
+    </div>
     <div class="form-group">
         <label for="t1">Encrypt this:</label>
         <input id="t1" type="text" class="form-control" placeholder="hex">
@@ -48,11 +55,15 @@
     </div>
     <div id="passwordP" class="form-group">
         <label for="t3">Password:</label>
-        <input id="t3" type="text" class="form-control" placeholder="text ASCII">
+        <input id="t3" type="text" class="form-control" placeholder="text UTF8">
     </div>
     <div id="aesKeyP" class="form-group" style="display:none">
         <label for="aesKey">AES 64 hexadecimal key:</label>
         <input id="aesKey" type="text" class="form-control" placeholder="hex">
+    </div>
+    <div class="form-check">
+        <input type="checkbox" class="form-check-input" id="hexParseAddress" name="hexParseAddress" onclick="checkBoxUpdate()">
+        <label class="form-check-label" for="hexParseAddress">Parse input as hexadecimal (legacy mode, otherwise text parsed as UTF8)</label>
     </div>
     <div class="form-check">
         <input type="checkbox" class="form-check-input" id="ivCheckbox" name="ivCheckbox" onclick="checkBoxUpdate()" checked>
@@ -60,7 +71,7 @@
     </div>
     <div id="addressP" class="form-group">
         <label for="t4">Address:</label>
-        <input id="t4" type="text" class="form-control" placeholder="text ASCII">
+        <input id="t4" type="text" class="form-control" placeholder="text UTF8">
     </div>
     <div id="ivP" class="form-group" style="display:none">
         <label for="iv">IV:</label>
@@ -70,12 +81,13 @@
         <input type="checkbox" class="form-check-input" id="pad" name="pad" checked>
         <label class="form-check-label" for="pad">Use PKCS7 padding (otherwise no padding and only blocks of 32 hexadecimals)</label>
     </div>
+    <br/>
     <button type="button" class="btn btn-primary" onclick="go()">Go</button>
     <br/><br/>
-    <div class="result">
+    <div class="green-text">
         Encrypted: <span id="p1"></span> (hex, save this one only)
     </div>
-    <div>
+    <div  class="red-text">
         Decrypt result: <span id="p2"></span> (hex)
     </div>
     <div>
@@ -1225,6 +1237,18 @@ CryptoJS.pad.NoPadding = {
             document.getElementById("ivP").style.display="block";
             document.getElementById("addressP").style.display="none";
         }
+
+        if(document.getElementById("utf8InputCheckbox").checked){
+            document.getElementById("t1").placeholder = "hex";
+        }else{
+            document.getElementById("t1").placeholder = "UTF8 text";
+        }
+
+        if(document.getElementById("hexParseAddress").checked){
+            document.getElementById("t4").placeholder = "hex";
+        }else{
+            document.getElementById("t4").placeholder = "UTF8 text";
+        }
     }
 
 	function go(){
@@ -1240,11 +1264,11 @@ CryptoJS.pad.NoPadding = {
             eMsg = "Invalid input, use hex.";
         }else{
             hexRegex = hexPat32;
-            eMsg = "Invalid input, use hex with a size divisible by 32.";
+            eMsg = "Invalid input, use hex with a length divisible by 32.";
         }
 		
         var keyManual = CryptoJS.enc.Hex.parse(document.getElementById("aesKey").value);
-		var shakey = CryptoJS.SHA256(document.getElementById("t3").value); //Textbox key here.
+		var shakey = CryptoJS.SHA256(CryptoJS.enc.Utf8.parse(document.getElementById("t3").value)); //Textbox key here.
 		var hash = CryptoJS.enc.Hex.parse(CryptoJS.enc.Hex.stringify(shakey));
 		
         if(keyManual == "" || keyManual == undefined){
@@ -1255,7 +1279,11 @@ CryptoJS.pad.NoPadding = {
 		var key = CryptoJS.enc.Hex.stringify(hash);
 
         var ivManual = CryptoJS.enc.Hex.parse(document.getElementById("iv").value);
-		var ivSeedBytes = CryptoJS.enc.Hex.parse(document.getElementById("t4").value); //Textbox iv seed here.
+		var ivSeedBytes;
+        if(document.getElementById("hexParseAddress").checked)
+            ivSeedBytes = CryptoJS.enc.Hex.parse(document.getElementById("t4").value); //Textbox iv seed here.
+        else
+            ivSeedBytes = CryptoJS.enc.Utf8.parse(document.getElementById("t4").value);
 		var ivSha = CryptoJS.SHA256(ivSeedBytes);
 		var ivFromHash = CryptoJS.enc.Hex.parse(CryptoJS.enc.Hex.stringify(ivSha).substring(0,32)); //32 chars, 16 bytes and 128 bits.
 		
@@ -1267,7 +1295,11 @@ CryptoJS.pad.NoPadding = {
 		}else
 			iv = ivManual;
 
-		var encHex = CryptoJS.enc.Hex.parse(document.getElementById("t1").value);
+		var encHex;
+        if(document.getElementById("utf8InputCheckbox").checked)
+            encHex = CryptoJS.enc.Hex.parse(document.getElementById("t1").value);
+        else
+            encHex = CryptoJS.enc.Utf8.parse(document.getElementById("t1").value);
 		
         var cryptoSettings;
         if(document.getElementById("pad").checked){
@@ -1282,16 +1314,26 @@ CryptoJS.pad.NoPadding = {
 
 		var decrypted = CryptoJS.AES.decrypt(encObj, hash, cryptoSettings);
 		
-	    if(document.getElementById("t1").value.match(hexRegex)){
+        var encIsGood = true;
+        if(!document.getElementById("utf8InputCheckbox").checked && !((CryptoJS.enc.Utf8.parse(document.getElementById("t1").value)+"").match(hexRegex)))
+            encIsGood = false;
+
+        if(document.getElementById("utf8InputCheckbox").checked && !document.getElementById("t1").value.match(hexRegex))
+            encIsGood = false;
+
+	    if(encIsGood){
 		    document.getElementById("p1").innerHTML=encrypted.ciphertext;
 	    }else{
 		    document.getElementById("p1").innerHTML=eMsg;
 	    }
         
-	    if(document.getElementById("t2").value.match(hexRegex)){
-		    document.getElementById("p2").innerHTML=decrypted;
+	    if(document.getElementById("t2").value.match(hexPat32)){
+            if(document.getElementById("utf8InputCheckbox").checked)
+		        document.getElementById("p2").innerHTML=decrypted;
+            else
+		        document.getElementById("p2").innerHTML=CryptoJS.enc.Utf8.stringify(decrypted);
 	    }else{
-		    document.getElementById("p2").innerHTML=eMsg;
+		    document.getElementById("p2").innerHTML="Invalid input, use hex with a length divisible by 32.";
 	    }
 
         if(!document.getElementById("passwordCheckbox").checked
