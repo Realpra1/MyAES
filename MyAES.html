@@ -88,7 +88,7 @@
         Encrypted: <span id="p1"></span> (hex, save this one only)
     </div>
     <div  class="red-text">
-        Decrypt result: <span id="p2"></span> (hex)
+        Decrypt result: <span id="p2"></span> <span id="decryptTypeLabel">(hex)</span>
     </div>
     <div>
         AES 256 bit key: <span id="p3"></span> (SHA256 of password, hex)
@@ -1252,6 +1252,12 @@ CryptoJS.pad.NoPadding = {
     }
 
 	function go(){
+        if(document.getElementById("utf8InputCheckbox").checked){
+            document.getElementById("decryptTypeLabel").innerHTML = "(hex)";
+        }else{
+            document.getElementById("decryptTypeLabel").innerHTML = "(UTF8 text)";
+        }
+
 		//Regex check input for validity and warn/demand it:
 		var hexPat = new RegExp("(\A|^)[0-9a-fA-F]+($|\Z)");
 		var hexPat32 = new RegExp("(\A|^)([0-9a-fA-F]{32})+($|\Z)");
